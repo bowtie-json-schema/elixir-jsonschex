@@ -1,7 +1,8 @@
 defmodule BowtieJSONSchex do
 
   @dialects [
-    "https://json-schema.org/draft/2020-12/schema"
+    "https://json-schema.org/draft/2020-12/schema",
+    "http://json-schema.org/draft-07/schema#"
   ]
 
   def main(_argv), do: run()
@@ -123,7 +124,7 @@ defmodule BowtieJSONSchex do
   defp build_schema(raw_schema, registry, state) do
     loader = build_loader(registry)
 
-    opts = maybe_put_default_dialect([loader: loader], state)
+    opts = put_draft([loader: loader], raw_schema, state)
 
     case JSONSchex.compile(raw_schema, opts) do
       {:ok, schema} -> schema
@@ -145,8 +146,18 @@ defmodule BowtieJSONSchex do
     end
   end
 
-  defp maybe_put_default_dialect(opts, %{default_dialect: dialect}),
-    do: Keyword.put(opts, :default_meta, dialect)
+  defp put_draft(opts, %{"$schema" => dialect}, _state) when dialect in @dialects,
+    do: opts
+
+  defp put_draft(opts, _raw_schema, %{default_dialect: dialect}) do
+    draft =
+      case dialect do
+        "https://json-schema.org/draft/2020-12/schema" -> "draft2020_12"
+        "http://json-schema.org/draft-07/schema#" -> "draft7"
+      end
+
+    Keyword.put(opts, :draft, draft)
+  end
 
   defp run_test(test, root) do
     %{"instance" => data} = test
