@@ -95,15 +95,22 @@ defmodule BowtieJSONSchex do
     {:reply, %{ok: true}, Map.put(state, :default_dialect, dialect)}
   end
 
-  defp handle_command(%{"cmd" => "run", "seq" => tseq, "case" => tcase}, state) do
-    %{"schema" => raw_schema, "tests" => tests} = tcase
-    registry = Map.get(tcase, "registry", %{})
-    debug(tcase, "tcase")
+  defp handle_command(%{"cmd" => "run", "seq" => tseq, "case" => tcase} = cmd, state) do
+    case Map.get(cmd, "output") || "flag" do
+      "flag" ->
+        %{"schema" => raw_schema, "tests" => tests} = tcase
+        registry = Map.get(tcase, "registry", %{})
+        debug(tcase, "tcase")
 
-    root = build_schema(raw_schema, registry, state)
-    results = Enum.map(tests, &run_test(&1, root))
+        root = build_schema(raw_schema, registry, state)
+        results = Enum.map(tests, &run_test(&1, root))
 
-    {:reply, %{seq: tseq, results: results}, state}
+        {:reply, %{seq: tseq, results: results}, state}
+
+      output ->
+        reply = %{seq: tseq, skipped: true, message: "Unsupported output format: #{output}"}
+        {:reply, reply, state}
+    end
   rescue
     e ->
       {:reply, errored(e, __STACKTRACE__, %{seq: tseq}), state}
